@@ -1,9 +1,10 @@
-import elasticsearch
-from fabric.api import sudo
-from fabric.api import settings
-import time
-import os
 import argparse
+import os
+import time
+
+import elasticsearch
+from fabric.api import settings
+from fabric.api import sudo
 
 secret_key = ""
 remote_user = ""
@@ -56,7 +57,6 @@ def es_node_service_restart(es_node_hostname, service_name):
         print('Restart of ES service {} on host: {}'
               ' - status:{}'.format(service_name, es_node_hostname,
                                     service_restart_status))
-
     except Exception as e:
         print('Error: {}'.format(e))
 
