@@ -42,16 +42,20 @@ def get_cluster_status():
 
 def es_node_service_restart(es_node_hostname, service_name):
     try:
-        print('Restarting ES service {} on host: {}'.format(service_name, es_node_hostname))
-        with settings(serial=True, host_string=es_node_hostname, key=secret_key, user=remote_user):
-            service_restart_result = sudo('service {} restart'.format(service_name))
+        print('Restarting ES service {} on host: {}'.format(service_name,
+                                                            es_node_hostname))
+        with settings(serial=True, host_string=es_node_hostname,
+                      key=secret_key, user=remote_user):
+            service_restart_result = sudo(
+                'service {} restart'.format(service_name))
         if service_restart_result.return_code != 0:
             service_restart_status = 'Unsuccessful'
         else:
             service_restart_status = 'Successful'
 
         print('Restart of ES service {} on host: {}'
-              ' - status:{}'.format(service_name, es_node_hostname, service_restart_status))
+              ' - status:{}'.format(service_name, es_node_hostname,
+                                    service_restart_status))
 
     except Exception as e:
         print('Error: {}'.format(e))
@@ -134,8 +138,9 @@ def main():
     print_node_list(es_masters_list)
     print(' \n ===============\n Data nodes:')
     print_node_list(es_datanodes_list)
-    print(' \n ===============\n Current cluster status is: {}, pending tasks: {}'
-          .format(es_cluster_status, es_cluster_pending_tasks))
+    print(' \n ===============\n Current cluster status is: {}, '
+          'pending tasks: {}'.format(es_cluster_status,
+                                     es_cluster_pending_tasks))
     if args.dry_run is False:
         print('Restarting ES cluster services')
         poll_cluster_status()
