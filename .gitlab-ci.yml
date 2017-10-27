@@ -1,4 +1,5 @@
 ---
+
 stages:
   - test
   - build
@@ -17,24 +18,9 @@ build:
   stage: build
   script:
     - export IMAGE_VERSION=git-$(echo $CI_BUILD_REF | cut -c1-8)
-    - make build
-    - make push
-    - make clean
+    - make build push clean
     - hub-tool tags:cleanup -p docker-hub.2gis.ru/2gis-io/es-gentle-restart -c 3
   only:
     - master
   tags:
     - shell-exec
-
-run_once:
-  stage: run_once
-  script:
-    - export IMAGE_VERSION=git-$(echo $CI_BUILD_REF | cut -c1-8)
-    - make run-once
-    - make logs
-    - make clean
-  only:
-    - master
-  when: manual
-  tags:
-    - docker-engine
