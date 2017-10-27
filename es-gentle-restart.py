@@ -15,8 +15,10 @@ es = elasticsearch.Elasticsearch([{'host': anchor_master, 'port': 9200}])
 
 
 def get_master_node():
-    current_master = es.cat.master(format='json')[0].get('node')
-    return current_master
+    current_master = es.cat.master(format='json')
+    if len(current_master) == 0:
+        raise Exception("No one master nodes found")
+    return current_master[0].get('node')
 
 
 def get_nodes_list():
