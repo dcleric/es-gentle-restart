@@ -5,18 +5,10 @@ import elasticsearch
 from fabric.api import settings as fabric_settings
 from fabric.api import sudo
 
-#settings.secret_key = ""
-#secret_key = ""
-#settings.remote_user = ""
-#settings.anchor_master = ""#
-#settings.es_port = '9200'
-
-es = elasticsearch.Elasticsearch([{'host': settings.anchor_master, 'port': 9200}])
-
 
 class ESClient():
-    def __init__(self, host, port):
-        self.es = elasticsearch.Elasticsearch([{'host': host, 'port': port}])
+    def __init__(self, host, port, timeout):
+        self.es = elasticsearch.Elasticsearch([{'host': host, 'port': port, 'timeout': timeout}])
 
     def get_master_node(self):
         current_master = self.es.cat.master(format='json')
@@ -46,11 +38,14 @@ class ESClient():
 
 
 def es_node_service_restart(es_node_hostname, service_name):
-    with fabric_settings(serial=True, host_string=es_node_hostname,
-                         key=settings.secret_key, user=settings.remote_user):
+    with fabric_settings(serial=True, eagerly_disconnect=True,
+                         host_string=es_node_hostname,
+                         key=settings.secret_key,
+                         user=settings.remote_user,
+                         timeout=45):
         try:
-            print('Restarting ES service {} on host: {}'.format(service_name,
-                                                                es_node_hostname))
+            print('Restarting ES service {} on host: {}'.format(
+                service_name, es_node_hostname))
             service_restart_result = sudo(
                     'service {} restart'.format(service_name))
             if service_restart_result.return_code != 0:
@@ -73,7 +68,9 @@ def restart_nodes(es_nodes_list, service):
         poll_cluster_status()
 
 
-def restart_master(current_master):
+def restart_master():
+    current_master = ESClient(settings.anchor_master,
+                              settings.es_port).get_master_node()
     es_node_service_restart(current_master, 'cron')
     time.sleep(10)
     poll_cluster_status()
@@ -82,7 +79,8 @@ def restart_master(current_master):
 
 def poll_cluster_status():
     while True:
-        cluster_status = ESClient(settings.anchor_master, settings.es_port).get_cluster_status()
+        cluster_status = ESClient(settings.anchor_master,
+                                  settings.es_port).get_cluster_status()
         print(cluster_status[0])
         if cluster_status[0] == 'green':
             print('ES cluster status: {} - done'.format(cluster_status))
@@ -99,7 +97,8 @@ def print_node_list(node_list):
 
 def get_master_back_to_anchor():
     while True:
-        current_master = ESClient(settings.anchor_master, settings.es_port).get_master_node()
+        current_master = ESClient(settings.anchor_master,
+                                  settings.es_port).get_master_node()
         if current_master != settings.anchor_master:
             es_node_service_restart(current_master, 'cron')
             time.sleep(10)
@@ -109,9 +108,6 @@ def get_master_back_to_anchor():
 
 
 def main():
-#    global secret_key
-#    global remote_user
-#    global anchor_master
     parser = argparse.ArgumentParser()
     parser.add_argument('--anchor-master', help="Current master in cluster",
                         action='store', required=False, dest='anchor_master')
@@ -148,11 +144,10 @@ def main():
     if args.dry_run is False:
         print('Restarting ES cluster services')
         poll_cluster_status()
-        restart_nodes(es_masters_list, 'cron')
-        restart_nodes(es_datanodes_list, 'cron')
-        #restart_nodes(es_masters_list, 'master_elasticsearch')
-        #restart_nodes(es_datanodes_list, 'data_elasticsearch')
-        #es_masters_list, es_datanodes_list = client.get_nodes_list()
+        restart_nodes(es_masters_list, 'master_elasticsearch')
+        restart_nodes(es_datanodes_list, 'data_elasticsearch')
+        print ('Restarting ES cluster current master')
+        restart_master()
         get_master_back_to_anchor()
         poll_cluster_status()
         print('\n ===============\n ES cluster restart completed.')
