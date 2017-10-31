@@ -3,7 +3,6 @@
 stages:
   - test
   - build
-  - run_once
 
 test:
   stage: test
