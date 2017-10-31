@@ -8,7 +8,8 @@ from fabric.api import sudo
 
 class ESClient():
     def __init__(self, host, port, timeout):
-        self.es = elasticsearch.Elasticsearch([{'host': host, 'port': port, 'timeout': timeout}])
+        self.es = elasticsearch.Elasticsearch([{'host': host, 'port': port,
+                                                'timeout': timeout}])
 
     def get_master_node(self):
         current_master = self.es.cat.master(format='json')
