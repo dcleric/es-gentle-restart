@@ -8,8 +8,9 @@ from fabric.api import sudo
 
 class ESClient():
     def __init__(self, host, port, timeout):
-        self.es = elasticsearch.Elasticsearch([{'host': host, 'port': port}],
-        timeout=timeout, max_retries=6, retry_on_timeout=True)
+        self.es = elasticsearch.Elasticsearch(
+            [{'host': host, 'port': port}], timeout=timeout,
+            max_retries=6, retry_on_timeout=True)
 
     def get_master_node(self):
         current_master = self.es.cat.master(format='json')
@@ -137,7 +138,8 @@ def main():
     if args.anchor_master:
         settings.anchor_master = args.anchor_master
 
-    client = ESClient(settings.anchor_master, settings.es_port, settings.timeout)
+    client = ESClient(settings.anchor_master, settings.es_port,
+                      settings.timeout)
     es_masters_list, es_datanodes_list = client.get_nodes_list()
     es_cluster_status, es_cluster_pending_tasks = ESClient(
         settings.anchor_master, settings.es_port,
