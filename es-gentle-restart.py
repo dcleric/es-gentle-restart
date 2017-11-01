@@ -8,8 +8,8 @@ from fabric.api import sudo
 
 class ESClient():
     def __init__(self, host, port, timeout):
-        self.es = elasticsearch.Elasticsearch([{'host': host, 'port': port,
-                                                'timeout': timeout}])
+        self.es = elasticsearch.Elasticsearch([{'host': host, 'port': port}],
+        timeout=timeout, max_retries=6, retry_on_timeout=True)
 
     def get_master_node(self):
         current_master = self.es.cat.master(format='json')
@@ -36,6 +36,23 @@ class ESClient():
         except Exception as e:
             print('Error: {}'.format(e))
         return es_cluster_status, es_cluster_pending_tasks
+
+    def poll_cluster_status(self):
+        while True:
+            try:
+                cluster_status = self.get_cluster_status()
+            except Exception as e:
+                print('Error: {}'.format(e))
+                time.sleep(5)
+                print('Retrying connection...')
+                continue
+            print(cluster_status[0])
+            if cluster_status[0] == 'green':
+                print('ES cluster status: {} - done'.format(cluster_status))
+                break
+            else:
+                print('Polling ES cluster status...{}'.format(cluster_status))
+                time.sleep(5)
 
 
 def es_node_service_restart(es_node_hostname, service_name):
@@ -66,29 +83,19 @@ def restart_nodes(es_nodes_list, service):
         if node_name != settings.anchor_master:
             es_node_service_restart(node_name, service)
             time.sleep(10)
-        poll_cluster_status()
+        ESClient(settings.anchor_master, settings.es_port,
+                 settings.timeout).poll_cluster_status()
 
 
 def restart_master():
     current_master = ESClient(settings.anchor_master,
-                              settings.es_port).get_master_node()
-    es_node_service_restart(current_master, 'cron')
-    time.sleep(10)
-    poll_cluster_status()
+                              settings.es_port,
+                              settings.timeout).get_master_node()
+    es_node_service_restart(current_master, 'master_elasticsearch')
+    time.sleep(60)
+    ESClient(settings.anchor_master, settings.es_port,
+             settings.timeout).poll_cluster_status()
     print('Current master - {} restarted'.format(current_master))
-
-
-def poll_cluster_status():
-    while True:
-        cluster_status = ESClient(settings.anchor_master,
-                                  settings.es_port).get_cluster_status()
-        print(cluster_status[0])
-        if cluster_status[0] == 'green':
-            print('ES cluster status: {} - done'.format(cluster_status))
-            break
-        else:
-            print('Polling ES cluster status...{}'.format(cluster_status))
-            time.sleep(5)
 
 
 def print_node_list(node_list):
@@ -99,9 +106,10 @@ def print_node_list(node_list):
 def get_master_back_to_anchor():
     while True:
         current_master = ESClient(settings.anchor_master,
-                                  settings.es_port).get_master_node()
+                                  settings.es_port,
+                                  settings.timeout).get_master_node()
         if current_master != settings.anchor_master:
-            es_node_service_restart(current_master, 'cron')
+            es_node_service_restart(current_master, 'master_elasticsearch')
             time.sleep(10)
         else:
             break
@@ -129,10 +137,11 @@ def main():
     if args.anchor_master:
         settings.anchor_master = args.anchor_master
 
-    client = ESClient(settings.anchor_master, settings.es_port)
+    client = ESClient(settings.anchor_master, settings.es_port, settings.timeout)
     es_masters_list, es_datanodes_list = client.get_nodes_list()
     es_cluster_status, es_cluster_pending_tasks = ESClient(
-        settings.anchor_master, settings.es_port).get_cluster_status()
+        settings.anchor_master, settings.es_port,
+        settings.timeout).get_cluster_status()
     print('Current cluster layout: \n ===============\n Current master node:')
     print(client.get_master_node())
     print(' \n ===============\n Master nodes:')
@@ -144,13 +153,15 @@ def main():
                                      es_cluster_pending_tasks))
     if args.dry_run is False:
         print('Restarting ES cluster services')
-        poll_cluster_status()
+        ESClient(settings.anchor_master, settings.es_port,
+                 settings.timeout).poll_cluster_status()
         restart_nodes(es_masters_list, 'master_elasticsearch')
         restart_nodes(es_datanodes_list, 'data_elasticsearch')
         print ('Restarting ES cluster current master')
         restart_master()
         get_master_back_to_anchor()
-        poll_cluster_status()
+        ESClient(settings.anchor_master, settings.es_port,
+                 settings.timeout).poll_cluster_status()
         print('\n ===============\n ES cluster restart completed.')
 
 
