@@ -1,0 +1,25 @@
+---
+
+stages:
+  - test
+  - build
+
+test:
+  stage: test
+  script:
+    - tox
+  tags:
+    - docker-engine
+    - python2
+    - tox
+
+build:
+  stage: build
+  script:
+    - export IMAGE_VERSION=git-$(echo $CI_BUILD_REF | cut -c1-8)
+    - make build push clean
+    - hub-tool tags:cleanup -p docker-hub.2gis.ru/2gis-io/es-gentle-restart -c 3
+  only:
+    - master
+  tags:
+    - shell-exec
