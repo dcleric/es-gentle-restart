@@ -83,7 +83,7 @@ def restart_nodes(es_nodes_list, service):
         node_name = node.get('name')
         if node_name != settings.anchor_master:
             es_node_service_restart(node_name, service)
-            time.sleep(10)
+            time.sleep(60)
         ESClient(settings.anchor_master, settings.es_port,
                  settings.timeout).poll_cluster_status()
 
